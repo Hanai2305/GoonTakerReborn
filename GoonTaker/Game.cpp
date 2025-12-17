@@ -26,20 +26,22 @@ void Draw()
 		g_VaseSprite.currentFrame = g_VaseFrames[i];
 		DrawVase(g_VasePositions[i]);
 	}
-	for (int i{}; i < g_WallsOnGridAmount; ++i)
+	for (int i{}; i < g_SpikesAmount; ++i)
 	{
-		DrawWall(g_WallsPositions[i]);
+		DrawSpikes(g_SpikesPositions[i]);
 	}
 	for (int i{}; i < g_SkeletonsAmount; ++i)
 	{
 		DrawSkeleton(g_Skeletons[i]);
 	}
 	DrawGrid();
+	
 }
 
 void Update(float elapsedSec)
 {
 	// process input, do physics
+	
 	
 	switch (g_AnimStateMainCharacter)
 	{
@@ -52,9 +54,12 @@ void Update(float elapsedSec)
 	case AnimState::Run:
 		AnimatedMainCharacterRun(elapsedSec);
 		break;
+	case AnimState::Dead:
+		AnimatedMainCharacterDead(elapsedSec);
+		break;
 	}
 	VaseCol(elapsedSec);
-	WallOnGridCol();
+	SpikeCol(elapsedSec);
 	SkeletonCol(elapsedSec);
 	CoolDown(elapsedSec);
 
@@ -76,6 +81,7 @@ void Update(float elapsedSec)
 			g_Skeletons[i].state = AnimState::Idle;
 			UpdateSprite(g_Skeletons[i].animation, elapsedSec);
 		}
+		AnimatedSpikesOnTheFloor(elapsedSec);
 	}
 	
 	//UpdateSprite(g_VaseSprite, elapsedSec);
@@ -103,6 +109,10 @@ void End()
 #pragma region inputHandling											
 void OnKeyDownEvent(SDL_Keycode key)
 {
+	if (g_AnimStateMainCharacter == AnimState::Dead || g_AnimStateMainCharacter == AnimState::Attack)
+	{
+		return;
+	}	
 	g_MainCharacterSprite.currentFrame = 23;
 	
 	if (g_CoolDown > 0.f)
@@ -224,7 +234,7 @@ void InitGameResources()
 	g_VasePositions = new Point2f[g_VaseAmount];
 	g_VaseFrames = new int[g_VaseAmount];
 	g_Skeletons = new Skeleton[g_SkeletonsAmount];
-	g_WallsPositions = new Point2f[g_WallsOnGridAmount];
+	g_SpikesPositions = new Point2f[g_SpikesAmount];
 
 	Point2f positionsOfSkeletons[] = { Point2f{8,6}, Point2f{2, 3}, Point2f{3, 7} };
 
@@ -236,11 +246,11 @@ void InitGameResources()
 	g_VasePositions[0] = Point2f{ 4, 7 };
 	g_VasePositions[1] = Point2f{ 7, 5 };
 
-	g_WallsPositions[0] = Point2f{ 5,8 };
-	g_WallsPositions[1] = Point2f{ 3,2 };
-	g_WallsPositions[2] = Point2f{ 8,1 };
-	g_WallsPositions[3] = Point2f{ 2,5 };
-	g_WallsPositions[4] = Point2f{ 1,3 };
+	g_SpikesPositions[0] = Point2f{ 5,8 };
+	g_SpikesPositions[1] = Point2f{ 3,2 };
+	g_SpikesPositions[2] = Point2f{ 8,1 };
+	g_SpikesPositions[3] = Point2f{ 2,5 };
+	g_SpikesPositions[4] = Point2f{ 1,3 };
 
 	if (!TextureFromFile("Resources/NightBorne/NightBorne.png", g_MainCharacterSprite.texture))
 	{
@@ -287,19 +297,28 @@ void InitGameResources()
 	}
 	g_SkeletonSpriteDead.frames = 15;
 	g_SkeletonSpriteDead.cols = 15;
-	g_SkeletonSpriteDead.frameTime = 0.1f;
+	g_SkeletonSpriteDead.frameTime = 0.05f;
 	g_SkeletonSpriteDead.accumulatedTime = 0.f;
 	g_SkeletonSpriteIdle.currentFrame = 0;
 
-	if (!TextureFromFile("Resources/individuals files/dongeonWallFloorTransparent9.png", g_WallTextureOnGrid.texture))
+	if (!TextureFromFile("Resources/Dungeon tileset.png", g_WallTextureOnGrid.texture))
 	{
-		std::cout << "ERROR wall!\n";
+		std::cout << "ERROR loading dungeon tileset spritesheet\n";
 	}
-	g_WallTextureOnGrid.frames = 1;
-	g_WallTextureOnGrid.cols = 1;
+	g_WallTextureOnGrid.frames = 288;
+	g_WallTextureOnGrid.cols = 24;
 	g_WallTextureOnGrid.frameTime = 0.1f;
 	g_WallTextureOnGrid.accumulatedTime = 0.f;
-	g_WallTextureOnGrid.currentFrame = 0;
+	g_WallTextureOnGrid.currentFrame = 63;
+	if (!TextureFromFile("Resources/Dungeon tileset.png", g_DungeonTileSet.texture))
+	{
+		std::cout << "ERROR loading dungeon tileset spritesheet\n";
+	}
+	g_DungeonTileSet.frames = 288;
+	g_DungeonTileSet.cols = 24;
+	g_DungeonTileSet.frameTime = 0.1f;
+	g_DungeonTileSet.accumulatedTime = 0.f;
+	g_DungeonTileSet.currentFrame = 63;
 
 	for (int i{}; i < g_SkeletonsAmount; ++i)
 	{
@@ -315,6 +334,7 @@ void FreeGameResources()
 	DeleteTexture(g_VaseSprite.texture);
 	DeleteTexture(g_SkeletonSpriteIdle.texture);
 	DeleteTexture(g_SkeletonSpriteDead.texture);
+	DeleteTexture(g_DungeonTileSet.texture);
 	delete[] g_VasePositions;
 	delete[] g_VaseFrames;
 	delete[] g_SkeletonPositions;
@@ -411,20 +431,6 @@ void DrawFloor()
 		wallX = 0;
 	}
 }
-void DrawSpikes()
-{
-	Point2f spikePos = ConvertToCenter(g_SpikesSprite, g_SpikesPos, 2);
-	float spikeX = g_SpikesPos.x;
-	float spikeY = 9;
-	for (int i{}; i < 10; ++i)
-	{
-		Point2f spikePos = ConvertToCenter(g_SpikesSprite, Point2f{spikeX, spikeY}, 3);
-		DrawSprite(g_SpikesSprite, spikePos, 3.f, false);
-		spikeX++;
-	}
-	spikeY = 0;
-	spikeX = 0;
-}
 void DrawVase(Point2f pos)
 {
 	Point2f vasePos = ConvertToCenter(g_VaseSprite, Point2f{pos.x, pos.y}, 0.25f);
@@ -435,10 +441,17 @@ void DrawSkeleton(const Skeleton& skeleton)
 	Point2f centeredPos = ConvertToCenter(skeleton.animation, skeleton.pos, 2.f);
 	DrawSprite(skeleton.animation, centeredPos, 2.f, false);
 }
-void DrawWall(Point2f pos)
+void DrawSpikes(Point2f pos)
 {
 	Point2f wallOnGridPos = ConvertToCenter(g_WallTextureOnGrid, Point2f{pos.x, pos.y}, 4.f);
 	DrawSprite(g_WallTextureOnGrid, wallOnGridPos, 4.f, false);
+}
+void DrawSpikesOnFloor(Point2f pos)
+{
+	g_DungeonTileSet.currentFrame = 63;
+	float scale = g_cellSize / 16.f; 
+	Point2f dungeonTileSetPos = ConvertToCenter(g_DungeonTileSet, Point2f{ pos.x, pos.y }, scale);
+	DrawSprite(g_DungeonTileSet, dungeonTileSetPos, scale, false);
 }
 void FlipSprite()
 {
@@ -561,7 +574,7 @@ void SkeletonCol(float elapsedSec)
 		}
 		
 		}
-		if (!g_CheckXas)
+		else if (!g_CheckXas)
 		{
 			if (g_LookingAtUp)
 			{
@@ -594,55 +607,77 @@ void SkeletonCol(float elapsedSec)
 		
 	}
 }
-void WallOnGridCol()
+void SpikeCol(float elapsedSec)
 {
-	for (int i{}; i < g_WallsOnGridAmount; ++i)
+	for (int i{}; i < g_SpikesAmount; ++i)
 	{
 		if (g_CheckXas)
 		{
 			if (g_LookingAtRight)
 			{
-				if (g_MainCharacterPos.x == g_WallsPositions[i].x && g_MainCharacterPos.y == g_WallsPositions[i].y)
+				if (g_MainCharacterPos.x == g_SpikesPositions[i].x && g_MainCharacterPos.y == g_SpikesPositions[i].y)
 				{
-					g_AnimStateMainCharacter = AnimState::Idle;
-					g_MainCharacterPos.x--;
+					AnimatedSpikesOnTheFloor(elapsedSec);
+					if (g_AnimStateMainCharacter != AnimState::Dead)
+					{
+						g_AnimStateMainCharacter = AnimState::Dead;
+						g_MainCharacterSprite.currentFrame = 92;
+					}
 				}
 			}
 			if (!g_LookingAtRight)
 			{
-				if (g_MainCharacterPos.x == g_WallsPositions[i].x && g_MainCharacterPos.y == g_WallsPositions[i].y)
+				if (g_MainCharacterPos.x == g_SpikesPositions[i].x && g_MainCharacterPos.y == g_SpikesPositions[i].y)
 				{
-					g_AnimStateMainCharacter = AnimState::Idle;
-					g_MainCharacterPos.x++;
+					AnimatedSpikesOnTheFloor(elapsedSec);
+					if (g_AnimStateMainCharacter != AnimState::Dead)
+					{
+						g_AnimStateMainCharacter = AnimState::Dead;
+						g_MainCharacterSprite.currentFrame = 92;
+					}
 				}
 			}
 		}
-		if (!g_CheckXas)
+		else if (!g_CheckXas)
 		{
-			if (g_LookingAtRight)
+			if (g_LookingAtUp)
 			{
-				if (g_MainCharacterPos.x == g_WallsPositions[i].x && g_MainCharacterPos.y == g_WallsPositions[i].y)
+				if (g_MainCharacterPos.x == g_SpikesPositions[i].x && g_MainCharacterPos.y == g_SpikesPositions[i].y)
 				{
-					g_AnimStateMainCharacter = AnimState::Idle;
-					g_MainCharacterPos.y++;
+					AnimatedSpikesOnTheFloor(elapsedSec);
+					if (g_AnimStateMainCharacter != AnimState::Dead)
+					{
+						g_AnimStateMainCharacter = AnimState::Dead;
+						g_MainCharacterSprite.currentFrame = 92;
+					}
 				}
+
 			}
-			if (!g_LookingAtRight)
+			if (!g_LookingAtUp)
 			{
-				if (g_MainCharacterPos.x == g_WallsPositions[i].x && g_MainCharacterPos.y == g_WallsPositions[i].y)
+				if (g_MainCharacterPos.x == g_SpikesPositions[i].x && g_MainCharacterPos.y == g_SpikesPositions[i].y)
 				{
-					g_AnimStateMainCharacter = AnimState::Idle;
-					g_MainCharacterPos.y--;
+					if (g_AnimStateMainCharacter != AnimState::Dead)
+					{
+						g_AnimStateMainCharacter = AnimState::Dead;
+						g_MainCharacterSprite.currentFrame = 92;
+					}
 				}
 			}
 		}
-		
 	}
-	
+}
+void AnimatedSpikesOnTheFloor(const float elapsedSec)
+{
+	g_SpikesSprite.accumulatedTime += elapsedSec;
+	if (g_SpikesSprite.accumulatedTime > g_SpikesSprite.frameTime)
+	{
+		g_SpikesSprite.currentFrame--;	
+	}
+	g_SpikesSprite.accumulatedTime -= g_SpikesSprite.frameTime;
 }
 void AnimateMainCharacterIdle(const float elapsedSec)
-{
-	
+{	
 	const int generalAnim{ 23 };
 	const int idleAnim{ 9 };
 	g_MainCharacterSprite.accumulatedTime += elapsedSec;
@@ -694,6 +729,30 @@ void AnimatedMainCharacterRun(const float elapsedSec)
 		}
 		g_MainCharacterSprite.accumulatedTime -= g_MainCharacterSprite.frameTime;
 	}
+}
+void AnimatedMainCharacterDead(const float elapsedSec)
+{
+	const int generalAnim{ 92 };
+	const int deadAnim{ 23 };
+
+	g_MainCharacterSprite.accumulatedTime += elapsedSec;
+
+	if (g_MainCharacterSprite.accumulatedTime > g_MainCharacterSprite.frameTime)
+	{
+		g_MainCharacterSprite.currentFrame++;
+		if (g_MainCharacterSprite.currentFrame > deadAnim + generalAnim)
+		{
+			g_AnimStateMainCharacter = AnimState::Idle;
+			if (g_AnimStateMainCharacter != AnimState::Dead)
+			{
+				std::cout << "Game over!";
+				g_MainCharacterPos = Point2f{ 1, 1 };
+				
+			}
+		}
+		g_MainCharacterSprite.accumulatedTime -= g_MainCharacterSprite.frameTime;
+	}
+
 }
 void CoolDown(const float elapsedSec)
 {

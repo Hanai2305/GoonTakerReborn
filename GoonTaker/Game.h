@@ -49,22 +49,24 @@ Sprite g_VaseSprite{};
 Sprite g_SkeletonSpriteIdle{};
 Sprite g_SkeletonSpriteDead{};
 Sprite g_WallTextureOnGrid{};
+Sprite g_DungeonTileSet{};
 
 Point2f g_MainCharacterPos{5, 5};
 Point2f g_WallPos{ 0, 0 };
 Point2f g_SpikesPos{ 0, 0 };
 Point2f g_VasePos{ 0, 0 };
 Point2f g_WallTextureOnGridPos{ 0, 0 };
+Point2f g_DungeonTileSetPos{ 0,0 };
 Point2f* g_SkeletonPositions = nullptr;
 Point2f* g_VasePositions = nullptr;
-Point2f* g_WallsPositions = nullptr;
+Point2f* g_SpikesPositions = nullptr;
 Skeleton* g_Skeletons = nullptr;
 
 int* g_VaseFrames = nullptr;
 
 int g_VaseAmount{ 2 };
 int g_SkeletonsAmount{ 3 };
-int g_WallsOnGridAmount{ 5 };
+int g_SpikesAmount{ 5 };
 
 const float g_LineWidth{ g_WindowWidth / 10.f };
 const float g_LineHeight{ g_WindowHeight / 10.f };
@@ -83,19 +85,22 @@ void FreeGameResources();
 void UpdateSprite(Sprite& sprite, float elapsedSec);
 
 void DrawFloor();
-void DrawSpikes();
 void FlipSprite();
 void DrawVase(Point2f pos);
 void DrawSkeleton(const Skeleton& skeleton);
-void DrawWall(Point2f pos);
+void DrawSpikes(Point2f pos);
+void DrawSpikesOnFloor(Point2f pos);
 
 void VaseCol(float elapsedSec);
 void SkeletonCol(float elapsedSec);
-void WallOnGridCol();
+void SpikeCol(float elapsedSec);
 
 void AnimatedMainCharacterAttack(float elapsedSec);
 void AnimateMainCharacterIdle(float elapsedSec);
 void AnimatedMainCharacterRun(const float elapsedSec);
+void AnimatedMainCharacterDead(const float elapsedSec);
+void AnimatedSpikesOnTheFloor(const float elapsedSec);
+
 Point2f ConvertToCenter(const Sprite& sprite, Point2f pos, float scale);
 
 void CoolDown(float elapsedSec);
