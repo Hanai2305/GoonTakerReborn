@@ -20,16 +20,17 @@ void Draw()
 	DrawFloor();
 	Point2f mainCharacterPos = ConvertToCenter(g_MainCharacterSprite, g_MainCharacterPos, 1.75f);
 	
+	for (int i{}; i < g_SpikesAmount; ++i)
+	{
+		DrawSpikesOnFloor(g_SpikesPositions[i]);
+	}
 	DrawSprite(g_MainCharacterSprite, mainCharacterPos, 1.75f, g_LookingAtRight);
 	for (int i{}; i < g_VaseAmount; ++i)
 	{
 		g_VaseSprite.currentFrame = g_VaseFrames[i];
 		DrawVase(g_VasePositions[i]);
 	}
-	for (int i{}; i < g_SpikesAmount; ++i)
-	{
-		DrawSpikes(g_SpikesPositions[i]);
-	}
+	
 	for (int i{}; i < g_SkeletonsAmount; ++i)
 	{
 		DrawSkeleton(g_Skeletons[i]);
@@ -41,12 +42,13 @@ void Draw()
 void Update(float elapsedSec)
 {
 	// process input, do physics
-	
+	g_SpikesSprite.currentFrame = 60;
 	
 	switch (g_AnimStateMainCharacter)
 	{
 	case AnimState::Idle:
 		AnimateMainCharacterIdle(elapsedSec);
+		g_DungeonTileSet.currentFrame = 63;
 		break;
 	case AnimState::Attack:
 		AnimatedMainCharacterAttack(elapsedSec);
@@ -56,6 +58,7 @@ void Update(float elapsedSec)
 		break;
 	case AnimState::Dead:
 		AnimatedMainCharacterDead(elapsedSec);
+		AnimatedSpikesOnTheFloor(elapsedSec);
 		break;
 	}
 	VaseCol(elapsedSec);
@@ -81,7 +84,7 @@ void Update(float elapsedSec)
 			g_Skeletons[i].state = AnimState::Idle;
 			UpdateSprite(g_Skeletons[i].animation, elapsedSec);
 		}
-		AnimatedSpikesOnTheFloor(elapsedSec);
+		
 	}
 	
 	//UpdateSprite(g_VaseSprite, elapsedSec);
@@ -109,10 +112,12 @@ void End()
 #pragma region inputHandling											
 void OnKeyDownEvent(SDL_Keycode key)
 {
+	//Return if character dead or attacking
 	if (g_AnimStateMainCharacter == AnimState::Dead || g_AnimStateMainCharacter == AnimState::Attack)
 	{
 		return;
-	}	
+	}
+	//Set run animation
 	g_MainCharacterSprite.currentFrame = 23;
 	
 	if (g_CoolDown > 0.f)
@@ -448,7 +453,6 @@ void DrawSpikes(Point2f pos)
 }
 void DrawSpikesOnFloor(Point2f pos)
 {
-	g_DungeonTileSet.currentFrame = 63;
 	float scale = g_cellSize / 16.f; 
 	Point2f dungeonTileSetPos = ConvertToCenter(g_DungeonTileSet, Point2f{ pos.x, pos.y }, scale);
 	DrawSprite(g_DungeonTileSet, dungeonTileSetPos, scale, false);
@@ -617,11 +621,12 @@ void SpikeCol(float elapsedSec)
 			{
 				if (g_MainCharacterPos.x == g_SpikesPositions[i].x && g_MainCharacterPos.y == g_SpikesPositions[i].y)
 				{
-					AnimatedSpikesOnTheFloor(elapsedSec);
+					
 					if (g_AnimStateMainCharacter != AnimState::Dead)
 					{
 						g_AnimStateMainCharacter = AnimState::Dead;
 						g_MainCharacterSprite.currentFrame = 92;
+						
 					}
 				}
 			}
@@ -629,11 +634,13 @@ void SpikeCol(float elapsedSec)
 			{
 				if (g_MainCharacterPos.x == g_SpikesPositions[i].x && g_MainCharacterPos.y == g_SpikesPositions[i].y)
 				{
-					AnimatedSpikesOnTheFloor(elapsedSec);
+					
 					if (g_AnimStateMainCharacter != AnimState::Dead)
 					{
+						
 						g_AnimStateMainCharacter = AnimState::Dead;
 						g_MainCharacterSprite.currentFrame = 92;
+						
 					}
 				}
 			}
@@ -644,11 +651,13 @@ void SpikeCol(float elapsedSec)
 			{
 				if (g_MainCharacterPos.x == g_SpikesPositions[i].x && g_MainCharacterPos.y == g_SpikesPositions[i].y)
 				{
-					AnimatedSpikesOnTheFloor(elapsedSec);
+					
 					if (g_AnimStateMainCharacter != AnimState::Dead)
 					{
+						
 						g_AnimStateMainCharacter = AnimState::Dead;
 						g_MainCharacterSprite.currentFrame = 92;
+						
 					}
 				}
 
@@ -661,6 +670,7 @@ void SpikeCol(float elapsedSec)
 					{
 						g_AnimStateMainCharacter = AnimState::Dead;
 						g_MainCharacterSprite.currentFrame = 92;
+						
 					}
 				}
 			}
@@ -669,12 +679,17 @@ void SpikeCol(float elapsedSec)
 }
 void AnimatedSpikesOnTheFloor(const float elapsedSec)
 {
-	g_SpikesSprite.accumulatedTime += elapsedSec;
-	if (g_SpikesSprite.accumulatedTime > g_SpikesSprite.frameTime)
+	g_DungeonTileSet.accumulatedTime += elapsedSec;
+	if (g_DungeonTileSet.accumulatedTime > g_DungeonTileSet.frameTime)
 	{
-		g_SpikesSprite.currentFrame--;	
+		g_DungeonTileSet.currentFrame--;
+		g_DungeonTileSet.accumulatedTime -= g_DungeonTileSet.frameTime;
 	}
-	g_SpikesSprite.accumulatedTime -= g_SpikesSprite.frameTime;
+	if (g_DungeonTileSet.currentFrame <= 60)
+	{
+		g_DungeonTileSet.currentFrame = 63;
+	}
+	
 }
 void AnimateMainCharacterIdle(const float elapsedSec)
 {	
